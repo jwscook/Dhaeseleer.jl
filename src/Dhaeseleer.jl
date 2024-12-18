@@ -6,14 +6,11 @@ sqrtrule1 = @rule sqrt((~x)^2) => ~x
 sqrtrule2 = @rule sqrt(1/(~x)^2) => 1/(~x)
 
 function process(a)
-  a = Symbolics.expand(a)
-  a = Symbolics.simplify(a, Rewriters.Prewalk(Rewriters.PassThrough(sqrtrule1)))
-  a = Symbolics.expand(a)
-  a = Symbolics.simplify(a, Rewriters.Prewalk(Rewriters.PassThrough(sqrtrule2)))
-  a = Symbolics.expand(a)
   a = Symbolics.expand_derivatives(a, true)
   a = Symbolics.expand(a)
-  a = Symbolics.simplify(a)
+  a = Symbolics.simplify(a, Rewriters.Prewalk(Rewriters.PassThrough(sqrtrule1)))
+  a = Symbolics.simplify(a, Rewriters.Prewalk(Rewriters.PassThrough(sqrtrule2)))
+  #a = Symbolics.simplify(a)
   return a
 end
 
@@ -79,7 +76,7 @@ function ArbitraryCoordinateSystem()
   return ArbitraryCoordinateSystem([x, y, z], [u1, u2, u3])
 end
 
-abstract type AbstractCoconVector end
+abstract type AbstractCoconVector <: AbstractArray{Num, 1} end
 for (CV, Ai) in ((:CovariantVector, :Aᵢ), (:ContravariantVector, :Aⁱ))
   @eval struct $(CV){C<:AbstractCoordinateSystem} <: AbstractCoconVector
     cs::C
@@ -88,23 +85,31 @@ for (CV, Ai) in ((:CovariantVector, :Aᵢ), (:ContravariantVector, :Aⁱ))
       return new{C}(cs, Ai)
     end
   end
-  @eval function simplify!(cv::$(CV))
-    cv.$(Ai) .= process.(cv.$(Ai))
-    return cv
-  end
-  @eval function subsimp!(cv::$(CV), dict)
-    for i in 1:3
-      cv.$(Ai)[i] = Symbolics.substitute(cv.$(Ai)[i], dict)
-    end
-    return simplify!(cv)
+  @eval Base.setindex!(a::$(CV), v, i) = (a.$(Ai)[i] = v)
+  @eval Base.getindex(a::$(CV), i) = a.$(Ai)[i]
+  @eval function Base.iterate(a::$(CV), state=1)
+    return state <= 3 ? (a.$(Ai)[state], state+1) : nothing
   end
 end
+Base.eachindex(::AbstractCoconVector) = 1:3
+Base.length(::AbstractCoconVector) = 3
+Base.size(::AbstractCoconVector) = (3,)
+function simplify!(input::AbstractArray)
+  for i in eachindex(input)
+    input[i] = process(input[i])
+  end
+  return input
+end
+simplify(input::Num) = process(input)
+function subsimp!(input::AbstractArray, dict)
+  for i in eachindex(input)
+    input[i] = Symbolics.substitute(input[i], dict)
+  end
+  return simplify!(input)
+end
+subsimp(input::Num, dict) = simplify(Symbolics.substitute(input, dict))
 
 coordinatesystem(a) = a.cs
-Base.getindex(a::CovariantVector, i) = a.Aⁱ[i]
-Base.setindex!(a::CovariantVector, v, i) = (a.Aⁱ[i] = v)
-Base.getindex(a::ContravariantVector, i) = a.Aᵢ[i]
-Base.setindex!(a::ContravariantVector, v, i) = (a.Aᵢ[i] = v)
 
 function Base.convert(a::CovariantVector)
   cs = coordinatesystem(a)
@@ -114,6 +119,30 @@ end
 function Base.convert(a::ContravariantVector)
   cs = coordinatesystem(a)
   return CovariantVector(cs, gᵢⱼ(cs) * a.Aⁱ)
+end
+
+function normalise(a::ContravariantVector)
+  cs = coordinatesystem(a)
+  #Aⁱ uᵢ = Ai ei
+  #ei = uᵢ / |uᵢ|
+  #Aⁱ uᵢ = Ai uᵢ / |uᵢ|
+  #Aⁱ |uᵢ| = Ai
+  gij = gᵢⱼ(cs)
+  return [a.Aⁱ[1] * sqrt(gij[1, 1]),
+          a.Aⁱ[2] * sqrt(gij[2, 2]),
+          a.Aⁱ[3] * sqrt(gij[3, 3])]
+end
+
+function normalise(a::CovariantVector)
+  cs = coordinatesystem(a)
+  #Aᵢ uⁱ = Ai ei
+  #ei = uⁱ / |uⁱ|
+  #Aᵢ uⁱ = Ai uⁱ / |uⁱ|
+  #Aᵢ |uⁱ| = Ai
+  gij = gⁱʲ(cs)
+  return [a.Aᵢ[1] * sqrt(gij[1, 1]),
+          a.Aᵢ[2] * sqrt(gij[2, 2]),
+          a.Aᵢ[3] * sqrt(gij[3, 3])]
 end
 
 import Base: abs2, abs
@@ -143,23 +172,23 @@ Base.:-(a::CovariantVector, b::ContravariantVector) = convert(a) - b
 Base.:-(a::ContravariantVector, b::CovariantVector) = convert(a) - b
 
 function (d::∇)(q)
-  return ContravariantVector(d.c, [d.c.∂₁(q), d.c.∂₂(q), d.c.∂₃(q)])
+  return CovariantVector(d.c, [d.c.∂₁(q), d.c.∂₂(q), d.c.∂₃(q)])
 end
 
 function (d::∇o)(a::ContravariantVector)
   cs = coordinatesystem(a)
   J = jac(cs)
   f = (cs.∂₁(J * a.Aⁱ[1]) + cs.∂₂(J * a.Aⁱ[2]) + cs.∂₃(J * a.Aⁱ[3])) / J
-  return f#process(f)
+  return f
 end
 ∇o(a::CovariantVector) = ∇o(convert(a))
 
 function (d::∇x)(a::CovariantVector)
   cs = coordinatesystem(a)
   J = jac(cs)
-  return ContravariantVector(cs, [cs.∂₂(a.Aᵢ[3]) - cs.∂₃(a.Aᵢ[2]) / J,
-                                  cs.∂₃(a.Aᵢ[1]) - cs.∂₁(a.Aᵢ[3]) / J,
-                                  cs.∂₁(a.Aᵢ[2]) - cs.∂₂(a.Aᵢ[1]) / J])
+  return ContravariantVector(cs, [(cs.∂₂(a.Aᵢ[3]) - cs.∂₃(a.Aᵢ[2])) / J,
+                                  (cs.∂₃(a.Aᵢ[1]) - cs.∂₁(a.Aᵢ[3])) / J,
+                                  (cs.∂₁(a.Aᵢ[2]) - cs.∂₂(a.Aᵢ[1])) / J])
 end
 (d::∇x)(a::ContravariantVector) = d(convert(a))
 
@@ -169,13 +198,15 @@ dot(a::CovariantVector, b::ContravariantVector) = dot(b, a)
 dot(a::T, b::T) where {T<:AbstractCoconVector} = dot(a, convert(b))
 function cross(a::CovariantVector, b::CovariantVector)
   cs = coordinatesystem(a)
-  return ContravariantVector(cs, cross(a.Aᵢ, b.Aᵢ) ./ 𝐽(cs))
+  return ContravariantVector(cs, cross(a.Aᵢ, b.Aᵢ) ./ jac(cs))
 end
 function cross(a::ContravariantVector, b::ContravariantVector)
   cs = coordinatesystem(a)
-  return ContravariantVector(cs, cross(a.Aⁱ, b.Aⁱ) .* 𝐽(cs))
+  return ContravariantVector(cs, cross(a.Aⁱ, b.Aⁱ) .* jac(cs))
 end
 cross(a::CovariantVector, b::ContravariantVector) = cross(convert(a), b)
 cross(a::ContravariantVector, b::CovariantVector) = cross(a, convert(b))
 export cross, dot
+
 end # module
+
