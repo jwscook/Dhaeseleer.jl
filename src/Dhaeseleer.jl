@@ -35,15 +35,21 @@ gⁱʲ(c::AbstractCoordinateSystem) = c.∂u⃗_∂x⃗ * c.∂u⃗_∂x⃗' # c
 gᵢⱼ(c::AbstractCoordinateSystem) = inv(gⁱʲ(c))        # c.gᵢⱼ #
 jac(c::AbstractCoordinateSystem) = sqrt(det(gᵢⱼ(c)))  # c.J   #
 
-struct ∇
+abstract type AbstractDifferentialOperator end
+for f in (:gⁱʲ, :gᵢⱼ, :jac)
+  @eval $f(d::AbstractDifferentialOperator) = $f(coordinatesystem(d))
+end
+
+struct ∇ <: AbstractDifferentialOperator
   c::AbstractCoordinateSystem
 end
-struct ∇o
+struct ∇o <: AbstractDifferentialOperator
   c::AbstractCoordinateSystem
 end
-struct ∇x
+struct ∇x <: AbstractDifferentialOperator
   c::AbstractCoordinateSystem
 end
+coordinatesystem(a::AbstractDifferentialOperator) = a.c
 
 function CoordinateSystem(xi, ui)
   ∂₁ = Differential(ui[1])

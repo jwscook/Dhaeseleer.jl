@@ -12,13 +12,13 @@ using Test
   ∇Ψ = ∇(Ψ)
   ∇ϕ = ∇(ϕ)
 
-  gij = Dhaeseleer.gⁱʲ(∇.c)
+  gij = Dhaeseleer.gⁱʲ(∇)
   d = Dict(R=>sqrt(x^2 + y^2), ϕ=>atan(y / x), Z=>z, R^2=>x^2 + y^2)
   Dhaeseleer.subsimp!(gij, d)
   Dhaeseleer.subsimp!(gij, x^2=>R^2 - y^2)
   @test all(gij .- [1 0 0; 0 1/R^2 0; 0 0 1] .== zeros(3, 3))
 
-  gij = Dhaeseleer.gᵢⱼ(∇.c)
+  gij = Dhaeseleer.gᵢⱼ(∇)
   Dhaeseleer.subsimp!(gij, d)
   Dhaeseleer.subsimp!(gij, x^2=>R^2 - y^2)
   @test all(gij .- [1 0 0; 0 R^2 0; 0 0 1] .== zeros(3, 3))
