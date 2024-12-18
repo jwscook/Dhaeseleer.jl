@@ -127,7 +127,7 @@ function Base.convert(a::ContravariantVector)
   return CovariantVector(cs, gᵢⱼ(cs) * a.Aⁱ)
 end
 
-function normalise(a::ContravariantVector)
+function unitise(a::ContravariantVector)
   cs = coordinatesystem(a)
   #Aⁱ uᵢ = Ai ei
   #ei = uᵢ / |uᵢ|
@@ -139,7 +139,7 @@ function normalise(a::ContravariantVector)
           a.Aⁱ[3] * sqrt(gij[3, 3])]
 end
 
-function normalise(a::CovariantVector)
+function unitise(a::CovariantVector)
   cs = coordinatesystem(a)
   #Aᵢ uⁱ = Ai ei
   #ei = uⁱ / |uⁱ|

@@ -3,14 +3,20 @@ using Test
 
 @testset "Dhaeseleer.jl" begin
   @variables x::Real, y::Real, z::Real
-  @variables R(x, y,z)::Real ϕ(x, y, z)::Real Z(x, y, z)::Real
-  #@variables R ϕ Z
+  @variables R ϕ Z
   ∇, ∇o, ∇x = Dhaeseleer.CoordinateSystem([x, y, z], [R, ϕ, Z])
   @variables B₀ R₀ κ₀ q₀
 
   Ψ = B₀ / (2 * R₀^2 * κ₀ * q₀) * (R * Z + κ₀^2 / 4 * (R^2 - R₀^2))
-  ∇Ψ = ∇(Ψ)
+
   ∇ϕ = ∇(ϕ)
+  d = Dict(R=>sqrt(x^2 + y^2), ϕ=>atan(y / x), Z=>z, R^2=>x^2 + y^2)
+  Dhaeseleer.subsimp!(∇ϕ, d)
+  Dhaeseleer.subsimp!(∇ϕ, x^2=>R^2 - y^2)
+  n∇ϕ = Dhaeseleer.unitise(∇ϕ)
+  Dhaeseleer.subsimp!(n∇ϕ, d)
+  Dhaeseleer.subsimp!(n∇ϕ, x^2=>R^2 - y^2)
+  @test all(n∇ϕ .- [0, 1/R, 0] .== zeros(3))
 
   gij = Dhaeseleer.gⁱʲ(∇)
   d = Dict(R=>sqrt(x^2 + y^2), ϕ=>atan(y / x), Z=>z, R^2=>x^2 + y^2)
@@ -23,6 +29,7 @@ using Test
   Dhaeseleer.subsimp!(gij, x^2=>R^2 - y^2)
   @test all(gij .- [1 0 0; 0 R^2 0; 0 0 1] .== zeros(3, 3))
 
+  ∇Ψ = ∇(Ψ)
   ∇x∇Ψ = ∇x(∇Ψ)
   d = Dict(R=>sqrt(x^2 + y^2), ϕ=>atan(y / x), Z=>z, R^2=>x^2 + y^2)
   Dhaeseleer.subsimp!(∇x∇Ψ, d)
@@ -30,7 +37,7 @@ using Test
   Dhaeseleer.subsimp!(∇x∇Ψ, d)
   @test all(∇x∇Ψ .== [0, 0, 0])
 
-
+  ∇ϕ = ∇(ϕ)
   ∇x∇ϕ = ∇x(∇ϕ)
   d = Dict(R=>sqrt(x^2 + y^2), ϕ=>atan(y / x), Z=>z, R^2=>x^2 + y^2)
   Dhaeseleer.subsimp!(∇x∇ϕ, d)
