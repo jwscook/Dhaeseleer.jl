@@ -30,7 +30,7 @@ end
 
 #gᵢⱼ(c::AbstractCoordinateSystem) = c.gᵢⱼ # c.∂u⃗_∂x⃗ * c.∂u⃗_∂x⃗' #
 #gⁱʲ(c::AbstractCoordinateSystem) = c.gⁱʲ # inv(gᵢⱼ(c))        #
-#𝐽(c::AbstractCoordinateSystem)   = c.J   # sqrt(det(gᵢⱼ(c)))  #
+#jac(c::AbstractCoordinateSystem) = c.J   # sqrt(det(gᵢⱼ(c)))  #
 gⁱʲ(c::AbstractCoordinateSystem) = c.∂u⃗_∂x⃗ * c.∂u⃗_∂x⃗' # c.gⁱʲ #
 gᵢⱼ(c::AbstractCoordinateSystem) = inv(gⁱʲ(c))        # c.gᵢⱼ #
 jac(c::AbstractCoordinateSystem) = sqrt(det(gᵢⱼ(c)))  # c.J   #
