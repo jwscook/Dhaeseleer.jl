@@ -201,6 +201,10 @@ end
 struct Ao∇ <: AbstractDifferentialOperator
   A::ContravariantVector
   d::∇
+  function Ao∇(A::ContravariantVector, d::∇)
+    @assert coordinatesystem(A) == coordinatesystem(d)
+    return new(A, d)
+  end
 end
 
 import LinearAlgebra: dot
