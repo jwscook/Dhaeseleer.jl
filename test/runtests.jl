@@ -5,9 +5,14 @@ using Test
   @variables x::Real, y::Real, z::Real
   @variables R ϕ Z
   ∇, ∇o, ∇x = Dhaeseleer.CoordinateSystem([x, y, z], [R, ϕ, Z])
-  @variables B₀ R₀ κ₀ q₀
+  @variables B₀ R₀ κ₀ q₀ τ₀ a₀ σ₀
 
-  Ψ = B₀ / (2 * R₀^2 * κ₀ * q₀) * (R * Z + κ₀^2 / 4 * (R^2 - R₀^2))
+  X = (R - R₀) / a₀
+  Y = Z / R₀
+  E₀ = a₀ / R₀
+  Ψ = (X-E₀/2*(1-X^2))^2 + (1-E₀/4)*(1+τ₀*E₀*X*(2+E₀*X))*Y^2/σ₀^2
+
+#  Ψ = B₀ / (2 * R₀^2 * κ₀ * q₀) * (R * Z + κ₀^2 / 4 * (R^2 - R₀^2))
 
   ∇ϕ = ∇(ϕ)
   d = Dict(R=>sqrt(x^2 + y^2), ϕ=>atan(y / x), Z=>z, R^2=>x^2 + y^2)
@@ -67,4 +72,7 @@ using Test
   To∇Ψ = Dhaeseleer.subsimp(To∇Ψ, x^2=>R^2 - y^2)
   @test To∇Ψ == 0
 
+  s = dot(T, ∇x(T)) # shear
+  c = cross(∇x(B / abs(B)), B / abs(B)) # curvature
+  Bo∇ = dot(B, ∇)
 end

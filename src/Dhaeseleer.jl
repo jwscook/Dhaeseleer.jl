@@ -198,10 +198,23 @@ function (d::∇x)(a::CovariantVector)
 end
 (d::∇x)(a::ContravariantVector) = d(convert(a))
 
-import LinearAlgebra: cross, dot
+struct Ao∇ <: AbstractDifferentialOperator
+  A::ContravariantVector
+  d::∇
+end
+
+import LinearAlgebra: dot
+dot(A::ContravariantVector, d::∇) = Ao∇(A, d)
+dot(A::CovariantVector, d::∇) = Ao∇(convert(A), d)
+
+function (d::Ao∇)(a::Num)
+  return d.A.Aⁱ[1] * d.d.∂₁(a) + d.A.Aⁱ[2] * d.d.∂₂(a) + d.A.Aⁱ[3] * d.d.∂₃(a)
+end
+
 dot(a::ContravariantVector, b::CovariantVector) = dot(a.Aⁱ, b.Aᵢ)
 dot(a::CovariantVector, b::ContravariantVector) = dot(b, a)
 dot(a::T, b::T) where {T<:AbstractCoconVector} = dot(a, convert(b))
+import LinearAlgebra: cross
 function cross(a::CovariantVector, b::CovariantVector)
   cs = coordinatesystem(a)
   return ContravariantVector(cs, cross(a.Aᵢ, b.Aᵢ) ./ jac(cs))
