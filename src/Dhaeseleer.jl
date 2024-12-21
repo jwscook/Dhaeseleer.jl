@@ -31,8 +31,24 @@ end
 #gᵢⱼ(c::AbstractCoordinateSystem) = c.gᵢⱼ # c.∂u⃗_∂x⃗ * c.∂u⃗_∂x⃗' #
 #gⁱʲ(c::AbstractCoordinateSystem) = c.gⁱʲ # inv(gᵢⱼ(c))        #
 #jac(c::AbstractCoordinateSystem) = c.J   # sqrt(det(gᵢⱼ(c)))  #
+
+"""
+    gⁱʲ(c::AbstractCoordinateSystem)
+
+Return the metric matrix of (uⁱ)ᵀuʲ
+"""
 gⁱʲ(c::AbstractCoordinateSystem) = c.∂u⃗_∂x⃗ * c.∂u⃗_∂x⃗' # c.gⁱʲ #
+"""
+    gᵢⱼ(c::AbstractCoordinateSystem)
+
+Return the metric matrix of (uᵢ)ᵀuⱼ
+"""
 gᵢⱼ(c::AbstractCoordinateSystem) = inv(gⁱʲ(c))        # c.gᵢⱼ #
+"""
+    jac(c::AbstractCoordinateSystem)
+
+Return the scalar Jacobian of the coordinate system
+"""
 jac(c::AbstractCoordinateSystem) = sqrt(det(gᵢⱼ(c)))  # c.J   #
 
 abstract type AbstractDifferentialOperator end
@@ -40,17 +56,57 @@ for f in (:gⁱʲ, :gᵢⱼ, :jac)
   @eval $f(d::AbstractDifferentialOperator) = $f(coordinatesystem(d))
 end
 
+"""
+    Gradient operator ∇
+
+# Fields
+- c: AbstractCoordinateSystem
+"""
 struct ∇ <: AbstractDifferentialOperator
   c::AbstractCoordinateSystem
 end
+
+"""
+    Divergence operator ∇o
+
+# Fields
+- c: AbstractCoordinateSystem
+"""
 struct ∇o <: AbstractDifferentialOperator
   c::AbstractCoordinateSystem
 end
+"""
+    Curl operator ∇x
+
+# Fields
+- c: AbstractCoordinateSystem
+"""
 struct ∇x <: AbstractDifferentialOperator
   c::AbstractCoordinateSystem
 end
 coordinatesystem(a::AbstractDifferentialOperator) = a.c
 
+
+"""
+    CoordinateSystem(xi,ui)
+
+Pass in a vector of symbols for the underlying Cartesian coordinates `xi`
+and the symbolic coordinates for another coordinate system `ui`.
+
+...
+# Arguments
+- `xi`:  Cartesian coordinates
+- `ui`:  A Vector of symbols for another coordinate system
+...
+
+# Example
+```julia
+@variables x y z R ϕ Z
+xi = [x, y, z]
+ui = [R, ϕ, Z]
+∇, ∇o, ∇x = CoordinateSystem(xi, ui)
+```
+"""
 function CoordinateSystem(xi, ui)
   ∂₁ = Differential(ui[1])
   ∂₂ = Differential(ui[2])
@@ -117,16 +173,47 @@ subsimp(input::Num, dict) = simplify(Symbolics.substitute(input, dict))
 
 coordinatesystem(a) = a.cs
 
+"""
+    Base.convert(a::CovariantVector)
+
+Switcha CovariantVector to a ContravariantVector
+
+...
+# Arguments
+- `a::CovariantVector`: 
+...
+"""
 function Base.convert(a::CovariantVector)
   cs = coordinatesystem(a)
   return ContravariantVector(cs, gⁱʲ(cs) * a.Aᵢ)
 end
 
+"""
+    Base.convert(a::ContravariantVector)
+
+Switcha ContravariantVector to a CovariantVector
+
+...
+# Arguments
+- `a::ContravariantVector`: 
+...
+"""
 function Base.convert(a::ContravariantVector)
   cs = coordinatesystem(a)
   return CovariantVector(cs, gᵢⱼ(cs) * a.Aⁱ)
 end
 
+"""
+    unitise(a::ContravariantVector)
+
+Return a vector with unit vectors in the coordinate system.
+The coefficients have physical units.
+
+...
+# Arguments
+- `a::ContravariantVector`: 
+...
+"""
 function unitise(a::ContravariantVector)
   cs = coordinatesystem(a)
   #Aⁱ uᵢ = Ai ei
@@ -139,6 +226,17 @@ function unitise(a::ContravariantVector)
           a.Aⁱ[3] * sqrt(gij[3, 3])]
 end
 
+"""
+    unitise(a::CovariantVector)
+
+Return a vector with unit vectors in the coordinate system.
+The coefficients have physical units.
+
+...
+# Arguments
+- `a::CovariantVector`: 
+...
+"""
 function unitise(a::CovariantVector)
   cs = coordinatesystem(a)
   #Aᵢ uⁱ = Ai ei
@@ -211,6 +309,20 @@ import LinearAlgebra: dot
 dot(A::ContravariantVector, d::∇) = Ao∇(A, d)
 dot(A::CovariantVector, d::∇) = Ao∇(convert(A), d)
 
+"""
+    (d::Ao∇)(a::Num)
+
+Apply the directional derivative operator to a symbolic expression.
+
+...
+# Arguments
+- `d::Ao∇(a::Num`: 
+...
+
+# Example
+```julia
+```
+"""
 function (d::Ao∇)(a::Num)
   return d.A.Aⁱ[1] * d.d.∂₁(a) + d.A.Aⁱ[2] * d.d.∂₂(a) + d.A.Aⁱ[3] * d.d.∂₃(a)
 end
