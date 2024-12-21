@@ -260,6 +260,20 @@ The coefficients have physical units.
 # Arguments
 - `a::ContravariantVector`: 
 ...
+
+```julia
+using Dhaeseleer, Symbolics, Test
+@variables x::Real, y::Real, z::Real
+@variables R ϕ Z
+∇, ∇o, ∇x = Dhaeseleer.CoordinateSystem([x, y, z], [R, ϕ, Z])
+∇ϕ = ∇(ϕ)
+d = Dict(R=>sqrt(x^2 + y^2), ϕ=>atan(y / x), Z=>z, R^2=>x^2 + y^2)
+Aᵢuⁱ = Dhaeseleer.convert(∇ϕ)
+Aϕ̂ = Dhaeseleer.unitise(Aᵢuⁱ)
+Dhaeseleer.subsimp!(Aϕ̂, d)
+Dhaeseleer.subsimp!(Aϕ̂, x^2=>R^2 - y^2)
+@test all(Aϕ̂ .- [0, 1/R, 0] .== zeros(3))
+```
 """
 function unitise(a::ContravariantVector)
   cs = coordinatesystem(a)
@@ -283,6 +297,19 @@ The coefficients have physical units.
 # Arguments
 - `a::CovariantVector`: 
 ...
+
+```julia
+using Dhaeseleer, Symbolics, Test
+@variables x::Real, y::Real, z::Real
+@variables R ϕ Z
+∇, ∇o, ∇x = Dhaeseleer.CoordinateSystem([x, y, z], [R, ϕ, Z])
+∇ϕ = ∇(ϕ)
+d = Dict(R=>sqrt(x^2 + y^2), ϕ=>atan(y / x), Z=>z, R^2=>x^2 + y^2)
+n∇ϕ = Dhaeseleer.unitise(∇ϕ)
+Dhaeseleer.subsimp!(n∇ϕ, d)
+Dhaeseleer.subsimp!(n∇ϕ, x^2=>R^2 - y^2)
+@test all(n∇ϕ .- [0, 1/R, 0] .== zeros(3))
+```
 """
 function unitise(a::CovariantVector)
   cs = coordinatesystem(a)
