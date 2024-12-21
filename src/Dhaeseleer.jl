@@ -163,12 +163,59 @@ function simplify!(input::AbstractArray)
   return input
 end
 simplify(input::Num) = process(input)
+
+"""
+    subsimp!(input::AbstractArray,dict)
+
+Substitute a symbols defined as pairs in a dictionary into an abstract
+array and then simplify the expressions within afterwards.
+
+This is an in-place operation and modifies the contents of the array.
+
+...
+# Arguments
+- `input::AbstractArray`: 
+- `dict`: 
+...
+
+```julia
+using Dhaeseleer, Symbolics
+@variables x::Real, y::Real, z::Real
+@variables R ϕ Z
+∇, ∇o, ∇x = Dhaeseleer.CoordinateSystem([x, y, z], [R, ϕ, Z])
+∇ϕ = ∇(ϕ)
+d = Dict(R=>sqrt(x^2 + y^2), ϕ=>atan(y / x), Z=>z, R^2=>x^2 + y^2)
+Dhaeseleer.subsimp!(∇ϕ, d)
+```
+"""
 function subsimp!(input::AbstractArray, dict)
   for i in eachindex(input)
     input[i] = Symbolics.substitute(input[i], dict)
   end
   return simplify!(input)
 end
+
+"""
+    subsimp!(input::Num,dict)
+
+Return a symbol after substituting symbols in it according to the contents
+of a dictionary and simplify the result.
+
+This is creates a copy of the incoming symbolic expression
+
+...
+# Arguments
+- `input::Num`: 
+- `dict`: 
+...
+
+```julia
+using Dhaeseleer, Symbolics
+@variables x::Real, y::Real
+@variables R
+Dhaeseleer.subsimp(sqrt(x^2 + y^2), x^2=>R^2 - y^2)
+```
+"""
 subsimp(input::Num, dict) = simplify(Symbolics.substitute(input, dict))
 
 coordinatesystem(a) = a.cs
