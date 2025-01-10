@@ -349,9 +349,7 @@ Base.:+(a::ContravariantVector, b::CovariantVector) = convert(a) + b
 Base.:-(a::CovariantVector, b::ContravariantVector) = convert(a) - b
 Base.:-(a::ContravariantVector, b::CovariantVector) = convert(a) - b
 
-function (d::∇)(q)
-  return CovariantVector(d.c, [d.c.∂₁(q), d.c.∂₂(q), d.c.∂₃(q)])
-end
+(d::∇)(q) = CovariantVector(d.c, [d.c.∂₁(q), d.c.∂₂(q), d.c.∂₃(q)])
 
 function (d::∇o)(a::ContravariantVector)
   cs = coordinatesystem(a)
