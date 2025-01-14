@@ -10,46 +10,38 @@ function process(a)
   a = Symbolics.expand(a)
   a = Symbolics.simplify(a, Rewriters.Prewalk(Rewriters.PassThrough(sqrtrule1)))
   a = Symbolics.simplify(a, Rewriters.Prewalk(Rewriters.PassThrough(sqrtrule2)))
-  #a = Symbolics.simplify(a)
   return a
 end
 
 abstract type AbstractCoordinateSystem end
 
 struct ArbitraryCoordinateSystem <: AbstractCoordinateSystem
-  xi::Vector{Num}
-  ui::Vector{Num}
-  ∂₁::Differential
-  ∂₂::Differential
-  ∂₃::Differential
-  ∂u⃗_∂x⃗::Matrix{Num} # ∂ui/∂xj
-  gᵢⱼ::Matrix{Num}
-  gⁱʲ::Matrix{Num}
-  J::Num
+  xi::Vector{Num} # Cartesian coordinates
+  ui::Vector{Num} # Non-Cartesian coordinates
+  ∂₁::Differential # Differential with respect to 1st non-Cartesian coord
+  ∂₂::Differential # Differential with respect to 2nd non-Cartesian coord
+  ∂₃::Differential # Differential with respect to 3rd non-Cartesian coord
+  ∂u⃗_∂x⃗::Matrix{Num} # 3x3 matrix of ∂ui/∂xj where i (j) are rows (columns)
 end
-
-#gᵢⱼ(c::AbstractCoordinateSystem) = c.gᵢⱼ # c.∂u⃗_∂x⃗ * c.∂u⃗_∂x⃗' #
-#gⁱʲ(c::AbstractCoordinateSystem) = c.gⁱʲ # inv(gᵢⱼ(c))        #
-#jac(c::AbstractCoordinateSystem) = c.J   # sqrt(det(gᵢⱼ(c)))  #
 
 """
     gⁱʲ(c::AbstractCoordinateSystem)
 
 Return the metric matrix of (uⁱ)ᵀuʲ
 """
-gⁱʲ(c::AbstractCoordinateSystem) = c.∂u⃗_∂x⃗ * c.∂u⃗_∂x⃗' # c.gⁱʲ #
+gⁱʲ(c::AbstractCoordinateSystem) = c.∂u⃗_∂x⃗ * c.∂u⃗_∂x⃗'
 """
     gᵢⱼ(c::AbstractCoordinateSystem)
 
 Return the metric matrix of (uᵢ)ᵀuⱼ
 """
-gᵢⱼ(c::AbstractCoordinateSystem) = inv(gⁱʲ(c))        # c.gᵢⱼ #
+gᵢⱼ(c::AbstractCoordinateSystem) = inv(gⁱʲ(c))
 """
     jac(c::AbstractCoordinateSystem)
 
 Return the scalar Jacobian of the coordinate system
 """
-jac(c::AbstractCoordinateSystem) = sqrt(det(gᵢⱼ(c)))  # c.J   #
+jac(c::AbstractCoordinateSystem) = sqrt(det(gᵢⱼ(c)))
 
 abstract type AbstractDifferentialOperator end
 for f in (:gⁱʲ, :gᵢⱼ, :jac)
@@ -113,22 +105,13 @@ function CoordinateSystem(xi, ui)
   ∂₃ = Differential(ui[3])
   ∂u⃗_∂x⃗ = Matrix{Num}(undef, 3, 3)
   ss(x) = String(Symbol(x))
-  #for (i, u) in enumerate(ui), (j, x) in enumerate(xi)
-  #  ∂u⃗_∂x⃗[i, j] = Symbolics.variable("∂" * ss(u) * "_∂" * ss(x))
-  #end
   ∂x = Differential(xi[1])
   ∂y = Differential(xi[2])
   ∂z = Differential(xi[3])
   ∂u⃗_∂x⃗ = [∂x(ui[1]) ∂y(ui[1]) ∂z(ui[1]);
            ∂x(ui[2]) ∂y(ui[2]) ∂z(ui[2]);
            ∂x(ui[3]) ∂y(ui[3]) ∂z(ui[3])]
-  #∂u⃗_∂x⃗ .= process.(∂u⃗_∂x⃗)
-  @variables g¹¹ g¹² g¹³ g²¹ g²² g²³ g³¹ g³² g³³
-  gⁱʲ = [g¹¹ g¹² g¹³; g²¹ g²² g²³; g³¹ g³² g³³] # gⁱʲ = inv(gᵢⱼ)
-  @variables g₁₁ g₁₂ g₁₃ g₂₁ g₂₂ g₂₃ g₃₁ g₃₂ g₃₃
-  gᵢⱼ = [g₁₁ g₁₂ g₁₃; g₂₁ g₂₂ g₂₃; g₃₁ g₃₂ g₃₃] # ∂u⃗_∂x⃗ * ∂u⃗_∂x⃗'
-  @variables J # sqrt(det(gᵢⱼ))
-  c = ArbitraryCoordinateSystem(xi, ui, ∂₁, ∂₂, ∂₃, ∂u⃗_∂x⃗, gᵢⱼ, gⁱʲ, J)
+  c = ArbitraryCoordinateSystem(xi, ui, ∂₁, ∂₂, ∂₃, ∂u⃗_∂x⃗)
   return (∇(c), ∇o(c), ∇x(c))
 end
 
@@ -277,10 +260,7 @@ Dhaeseleer.subsimp!(Aϕ̂, x^2=>R^2 - y^2)
 """
 function unitise(a::ContravariantVector)
   cs = coordinatesystem(a)
-  #Aⁱ uᵢ = Ai ei
-  #ei = uᵢ / |uᵢ|
-  #Aⁱ uᵢ = Ai uᵢ / |uᵢ|
-  #Aⁱ |uᵢ| = Ai
+  #Aⁱ uᵢ = Ai ei, ei = uᵢ / |uᵢ|, Aⁱ uᵢ = Ai uᵢ / |uᵢ|, hence Aⁱ |uᵢ| = Ai
   gij = gᵢⱼ(cs)
   return [a.Aⁱ[1] * sqrt(gij[1, 1]),
           a.Aⁱ[2] * sqrt(gij[2, 2]),
@@ -313,10 +293,7 @@ Dhaeseleer.subsimp!(n∇ϕ, x^2=>R^2 - y^2)
 """
 function unitise(a::CovariantVector)
   cs = coordinatesystem(a)
-  #Aᵢ uⁱ = Ai ei
-  #ei = uⁱ / |uⁱ|
-  #Aᵢ uⁱ = Ai uⁱ / |uⁱ|
-  #Aᵢ |uⁱ| = Ai
+  #Aᵢ uⁱ = Ai ei, ei = uⁱ / |uⁱ|, Aᵢ uⁱ = Ai uⁱ / |uⁱ|, hence Aᵢ |uⁱ| = Ai
   gij = gⁱʲ(cs)
   return [a.Aᵢ[1] * sqrt(gij[1, 1]),
           a.Aᵢ[2] * sqrt(gij[2, 2]),
